@@ -85,6 +85,12 @@ def main():
             artifact_path=f"xgboost-{run.info.run_id}",
             skops_trusted_types=["xgboost.core.Booster", "xgboost.sklearn.XGBRegressor"]
         )
+
+        # Save model locally for evaluation (not tracked by DVC)
+        os.makedirs(models_dir, exist_ok=True)
+        model_local_path = os.path.join(models_dir, "model.pkl")
+        print(f"Saving trained model locally to {model_local_path}...")
+        joblib.dump(model, model_local_path)
     
         # 4. Evaluate model
         print("\n--- EVALUATION METRICS ---")

@@ -2,6 +2,14 @@ schema: '2.0'
 stages:
   ingest:
     cmd: python -m src.data.ingest
+    params:
+      params.yaml:
+        ingest:
+          years:
+          - 2026
+          months:
+          - 1
+          - 2
     outs:
     - path: data/raw
       hash: md5
@@ -38,8 +46,8 @@ stages:
       size: 1327196
     - path: src/data/fit_preprocessor.py
       hash: md5
-      md5: 4e048753e97c87acc1b9c91e0d772505
-      size: 2357
+      md5: f6866c82d4d5d58d62b382cbe741e8e8
+      size: 2423
     outs:
     - path: artifacts/preprocessor.pkl
       hash: md5
@@ -77,5 +85,15 @@ stages:
       nfiles: 3
     - path: src/training/train.py
       hash: md5
-      md5: 2382a799119b06f757de24b3a97e05ec
-      size: 4677
+      md5: b5d1d1ef69a88651471214ae6daffd1c
+      size: 5122
+    params:
+      params.yaml:
+        train:
+          max_depth: 7
+          learning_rate: 0.0345
+          min_child_weight: 9
+          subsample: 0.603
+          colsample_bytree: 0.6552
+          gamma: 4.7917
+          n_estimators: 309

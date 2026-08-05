@@ -1,6 +1,8 @@
 stages:
   ingest:
     cmd: python -m src.data.ingest
+    params:
+      - ingest
     outs:
       - data/raw
 
@@ -31,6 +33,8 @@ stages:
 
   train:
     cmd: python -m src.training.train
+    params:
+      - train
     deps:
       - data/processed
       - artifacts/preprocessor.pkl

@@ -1,0 +1,37 @@
+stages:
+  ingest:
+    cmd: python -m src.data.ingest
+    outs:
+      - data/raw
+
+  split:
+    cmd: python -m src.data.split
+    deps:
+      - data/raw
+    outs:
+      - data/split/train_raw.parquet
+      - data/split/val_raw.parquet
+      - data/split/test_raw.parquet
+
+  fit_preprocessor:
+    cmd: python -m src.data.fit_preprocessor
+    deps:
+      - data/split/train_raw.parquet
+      - src/data/fit_preprocessor.py
+    outs:
+      - artifacts/preprocessor.pkl
+
+  transform:
+    cmd: python -m src.data.transform
+    deps:
+      - data/split
+      - artifacts/preprocessor.pkl
+    outs:
+      - data/processed
+
+  train:
+    cmd: python -m src.training.train
+    deps:
+      - data/processed
+      - artifacts/preprocessor.pkl
+      - src/training/train.py

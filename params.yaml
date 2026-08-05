@@ -1,0 +1,12 @@
+ingest:
+  years: [2026]
+  months: [1, 2]
+
+train:
+  max_depth: 7
+  learning_rate: 0.0345
+  min_child_weight: 9
+  subsample: 0.6030
+  colsample_bytree: 0.6552
+  gamma: 4.7917
+  n_estimators: 309

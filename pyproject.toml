@@ -1,0 +1,19 @@
+[project]
+name = "test"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "dvc>=3.67.1",
+    "geopandas>=1.1.4",
+    "joblib>=1.5.3",
+    "matplotlib>=3.11.1",
+    "mlflow>=2.15.0",
+    "optuna>=4.9.0",
+    "pandas>=2.2.0,<3",
+    "pyarrow>=15.0.0,<20",
+    "scikit-learn>=1.9.0",
+    "seaborn>=0.13.2",
+    "xgboost>=3.4.0",
+]

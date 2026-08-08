@@ -1,6 +1,6 @@
 ingest:
   years: [2026]
-  months: [1, 2]
+  months: [2, 3, 4]
 
 train:
   max_depth: 7

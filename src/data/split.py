@@ -4,13 +4,13 @@ import pandas as pd
 def main():
     print("--- STAGE 2: SPLITTING ---")
     
-    raw_csv = "data/raw/raw_data.csv"
-    if not os.path.exists(raw_csv):
-        raise FileNotFoundError(f"Raw data file {raw_csv} not found. Did ingest stage run successfully?")
+    raw_parquet = "data/raw/raw_data.parquet"
+    if not os.path.exists(raw_parquet):
+        raise FileNotFoundError(f"Raw data file {raw_parquet} not found. Did ingest stage run successfully?")
 
     # 1. Load data
-    print(f"Loading raw data from {raw_csv}...")
-    df = pd.read_csv(raw_csv)
+    print(f"Loading raw data from {raw_parquet}...")
+    df = pd.read_parquet(raw_parquet)
     
     # 2. Sort chronologically
     pickup_col = 'lpep_pickup_datetime'

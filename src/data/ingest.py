@@ -73,10 +73,10 @@ def main():
         df_combined[pickup_col] = pd.to_datetime(df_combined[pickup_col])
         df_combined.sort_values(by=pickup_col, inplace=True)
     
-    # Save combined csv
-    raw_data_path = os.path.join(raw_dir, "raw_data.csv")
+    # Save combined parquet
+    raw_data_path = os.path.join(raw_dir, "raw_data.parquet")
     print(f"Saving merged dataset to {raw_data_path}...")
-    df_combined.to_csv(raw_data_path, index=False)
+    df_combined.to_parquet(raw_data_path, index=False)
     
     # Clean up tmp folder
     print("Cleaning up temporary download folders...")

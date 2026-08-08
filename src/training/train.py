@@ -17,7 +17,8 @@ if sys.platform == "win32":
 
 from src.preprocessing import prepare_X_y
 
-mlflow.set_tracking_uri("http://localhost:5000")
+mlflow_uri = os.getenv("MLFLOW_TRACKING_URI", "http://localhost:5000")
+mlflow.set_tracking_uri(mlflow_uri)
 mlflow.set_experiment("green_taxi_duration_prediction")
 
 def load_params(params_path="params.yaml"):

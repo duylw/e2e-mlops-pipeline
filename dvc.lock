@@ -2,48 +2,58 @@ schema: '2.0'
 stages:
   ingest:
     cmd: python -m src.data.ingest
+    deps:
+    - path: src/data/ingest.py
+      hash: md5
+      md5: 2d6728d991f698be2f33712f44201067
+      size: 3508
     params:
       params.yaml:
         ingest:
           years:
           - 2026
           months:
-          - 1
           - 2
+          - 3
+          - 4
     outs:
     - path: data/raw
       hash: md5
-      md5: c65f47367f079246ec9941b49c84e9f8.dir
-      size: 8595621
+      md5: 4fd8d99ec80ff0d3f8769e5350dd3a66.dir
+      size: 3595907
       nfiles: 2
   split:
     cmd: python -m src.data.split
     deps:
     - path: data/raw
       hash: md5
-      md5: c65f47367f079246ec9941b49c84e9f8.dir
-      size: 8595621
+      md5: 4fd8d99ec80ff0d3f8769e5350dd3a66.dir
+      size: 3595907
       nfiles: 2
+    - path: src/data/split.py
+      hash: md5
+      md5: e6a7963dd484b7774fc360a94edde1fb
+      size: 1900
     outs:
     - path: data/split/test_raw.parquet
       hash: md5
-      md5: 8221d2b702e8cac9e0dbcb20b3de12af
-      size: 450531
+      md5: bfb9313317a969bd0ac2125c2b1b0ec8
+      size: 729878
     - path: data/split/train_raw.parquet
       hash: md5
-      md5: 92147f6e5f0bd9c9d37402f0caa2f606
-      size: 1327196
+      md5: 8908f0d140557e3564d3e7a24dc62384
+      size: 2170253
     - path: data/split/val_raw.parquet
       hash: md5
-      md5: f7297c70a0520e05f4aa17ccba8364f4
-      size: 453142
+      md5: 95c1d2cbf1e6c67a89b31dfc123a1aac
+      size: 727398
   fit_preprocessor:
     cmd: python -m src.data.fit_preprocessor
     deps:
     - path: data/split/train_raw.parquet
       hash: md5
-      md5: 92147f6e5f0bd9c9d37402f0caa2f606
-      size: 1327196
+      md5: 8908f0d140557e3564d3e7a24dc62384
+      size: 2170253
     - path: src/data/fit_preprocessor.py
       hash: md5
       md5: f6866c82d4d5d58d62b382cbe741e8e8
@@ -51,42 +61,46 @@ stages:
     outs:
     - path: artifacts/preprocessor.pkl
       hash: md5
-      md5: 8490d8bd4d4003a20d93393979d7b508
-      size: 22080
+      md5: d88280b68d1853bed357759262074387
+      size: 22176
   transform:
     cmd: python -m src.data.transform
     deps:
     - path: artifacts/preprocessor.pkl
       hash: md5
-      md5: 8490d8bd4d4003a20d93393979d7b508
-      size: 22080
+      md5: d88280b68d1853bed357759262074387
+      size: 22176
     - path: data/split
       hash: md5
-      md5: 74c601154a5a450f793b85f9caa9c3cc.dir
-      size: 2230926
+      md5: fd85268bfe569996b17ce3a0b1b437fc.dir
+      size: 3627586
       nfiles: 4
+    - path: src/data/transform.py
+      hash: md5
+      md5: e9b251fa19cc9ce3891a6d785d16a625
+      size: 1937
     outs:
     - path: data/processed
       hash: md5
-      md5: df9d70b5c2a674399be68ff88e0b7711.dir
-      size: 548337
+      md5: 61295dfdf1dca238cce5226e34cf0b7a.dir
+      size: 838461
       nfiles: 3
   train:
     cmd: python -m src.training.train
     deps:
     - path: artifacts/preprocessor.pkl
       hash: md5
-      md5: 8490d8bd4d4003a20d93393979d7b508
-      size: 22080
+      md5: d88280b68d1853bed357759262074387
+      size: 22176
     - path: data/processed
       hash: md5
-      md5: df9d70b5c2a674399be68ff88e0b7711.dir
-      size: 548337
+      md5: 61295dfdf1dca238cce5226e34cf0b7a.dir
+      size: 838461
       nfiles: 3
     - path: src/training/train.py
       hash: md5
-      md5: b5d1d1ef69a88651471214ae6daffd1c
-      size: 5122
+      md5: f3d99ee6bf81f5a6d9fb1b78efa9e9ae
+      size: 5170
     params:
       params.yaml:
         train:

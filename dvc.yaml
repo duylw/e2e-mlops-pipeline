@@ -3,6 +3,8 @@ stages:
     cmd: python -m src.data.ingest
     params:
       - ingest
+    deps:
+      - src/data/ingest.py
     outs:
       - data/raw
 
@@ -10,6 +12,7 @@ stages:
     cmd: python -m src.data.split
     deps:
       - data/raw
+      - src/data/split.py
     outs:
       - data/split/train_raw.parquet
       - data/split/val_raw.parquet
@@ -28,6 +31,7 @@ stages:
     deps:
       - data/split
       - artifacts/preprocessor.pkl
+      - src/data/transform.py
     outs:
       - data/processed
 

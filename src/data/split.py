@@ -1,5 +1,7 @@
 import os
+
 import pandas as pd
+
 
 def main():
     print("--- STAGE 2: SPLITTING ---")

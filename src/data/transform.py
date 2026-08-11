@@ -1,29 +1,29 @@
 import os
+
 import joblib
 import pandas as pd
 
-from src.preprocessing import (
-    clean_taxi_data,
-    engineer_base_features,
-    transform_advanced_features
-)
 
 def main():
     print("--- STAGE 4: TRANSFORMATION ---")
-    
-    split_dir = "data/split"
-    preprocessor_pkl = "artifacts/preprocessor.pkl"
-    processed_dir = "data/processed"
+    from src.config.paths import ProjectPaths
+
+    paths = ProjectPaths()
+    split_dir = paths.split_dir
+    preprocessor_pkl = paths.preprocessor_file
+    processed_dir = paths.processed_dir
     
     if not os.path.exists(preprocessor_pkl):
-        raise FileNotFoundError(f"Preprocessor artifacts not found at {preprocessor_pkl}")
+        raise FileNotFoundError(f"Preprocessor object not found at {preprocessor_pkl}")
         
     os.makedirs(processed_dir, exist_ok=True)
     
-    # 1. Load artifacts
-    print(f"Loading preprocessor artifacts from {preprocessor_pkl}...")
-    artifacts = joblib.load(preprocessor_pkl)
-    df_lookup = artifacts['df_lookup']
+    # 1. Load preprocessor class object
+    print(f"Loading preprocessor from {preprocessor_pkl}...")
+    preprocessor = joblib.load(preprocessor_pkl)
+    
+    # Ensure inference mode is off during training transformation
+    preprocessor.is_inference = False
     
     splits = ["train", "val", "test"]
     for split in splits:
@@ -37,14 +37,8 @@ def main():
         # Load raw split
         df_raw = pd.read_parquet(raw_path)
         
-        # Stateless cleaning
-        df_cleaned = clean_taxi_data(df_raw)
-        
-        # Base feature extraction
-        df_base = engineer_base_features(df_cleaned, df_lookup)
-        
-        # Advanced feature transformations (mapping speed profile, OHE encoding, column alignment)
-        df_transformed = transform_advanced_features(df_base, artifacts)
+        # Transform using the preprocessor class object
+        df_transformed = preprocessor.transform(df_raw)
         
         # Save output parquet
         out_path = os.path.join(processed_dir, f"{split}.parquet")

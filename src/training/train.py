@@ -1,141 +1,155 @@
-import os
 import sys
-import yaml
+import time
+
 import joblib
+import mlflow
+import mlflow.xgboost
 import pandas as pd
 import xgboost as xgb
-import mlflow
-from sklearn.metrics import root_mean_squared_error, mean_absolute_error
+from sklearn.metrics import mean_absolute_error, root_mean_squared_error
 
-# Fix Windows encoding issue for terminal output (e.g. MLflow runner emoji)
-if sys.platform == "win32":
-    try:
-        sys.stdout.reconfigure(encoding="utf-8")
-        sys.stderr.reconfigure(encoding="utf-8")
-    except AttributeError:
-        pass
+from src.config.paths import ProjectPaths
+from src.config.settings import load_mlflow_settings, load_params
+from src.features.engineering import prepare_X_y
+from src.utils.io import ensure_dir, save_json
 
-from src.preprocessing import prepare_X_y
+PREPROCESSOR_ARTIFACT_PATH = "preprocessor.pkl"
 
-mlflow_uri = os.getenv("MLFLOW_TRACKING_URI", "http://localhost:5000")
-mlflow.set_tracking_uri(mlflow_uri)
-mlflow.set_experiment("green_taxi_duration_prediction")
 
-def load_params(params_path="params.yaml"):
-    with open(params_path, 'r') as f:
-        return yaml.safe_load(f)
+def configure_console_encoding() -> None:
+    """Allow MLflow status messages containing Unicode on Windows terminals."""
+    if sys.platform == "win32":
+        for stream in (sys.stdout, sys.stderr):
+            if hasattr(stream, "reconfigure"):
+                stream.reconfigure(encoding="utf-8")
+
+
+def configure_mlflow():
+    settings = load_mlflow_settings()
+    mlflow.set_tracking_uri(settings.tracking_uri)
+    mlflow.set_experiment(settings.experiment_name)
+    return settings
+
+
+def load_processed_split(paths: ProjectPaths, split: str):
+    path = paths.processed_dir / f"{split}.parquet"
+    if not path.exists():
+        return None, None
+    df = pd.read_parquet(path)
+    return prepare_X_y(df)
+
+
+def evaluate_split(model: xgb.XGBRegressor, X: pd.DataFrame | None, y: pd.Series | None, split: str) -> dict:
+    if X is None or y is None:
+        return {}
+
+    started_at = time.time()
+    predictions = model.predict(X)
+    latency = (time.time() - started_at) / max(len(X), 1)
+    return {
+        f"rmse_{split}": root_mean_squared_error(y, predictions),
+        f"mae_{split}": mean_absolute_error(y, predictions),
+        f"latency_per_row_{split}": latency,
+    }
+
+
+def build_model(params: dict) -> xgb.XGBRegressor:
+    model_params = dict(params)
+    n_estimators = model_params.pop("n_estimators", 1000)
+    return xgb.XGBRegressor(
+        **model_params,
+        n_estimators=n_estimators,
+        objective="reg:squarederror",
+        eval_metric="rmse",
+        random_state=42,
+        n_jobs=-1,
+    )
+
 
 def main():
+    configure_console_encoding()
     print("--- STAGE 5: MODEL TRAINING ---")
-    
-    processed_dir = "data/processed"
-    models_dir = "models"
-    params_path = "params.yaml"
-    
-    with mlflow.start_run() as run:
+    paths = ProjectPaths()
+    settings = configure_mlflow()
+    train_params = load_params(paths.params_file)["train"]
 
-        # 1. Load parameters
-        params = load_params(params_path)['train']
-        print(f"Loaded training parameters: {params}")
-        
-        mlflow.log_params(params)
-        # 2. Load processed datasets
-        train_path = os.path.join(processed_dir, "train.parquet")
-        val_path = os.path.join(processed_dir, "val.parquet")
-        test_path = os.path.join(processed_dir, "test.parquet")
-        
-        if not os.path.exists(train_path):
-            raise FileNotFoundError(f"Training dataset not found at {train_path}")
-            
-        print(f"Loading train data from {train_path}...")
-        df_train = pd.read_parquet(train_path)
-        X_train, y_train = prepare_X_y(df_train)
-        mlflow.log_metrics({"train_samples": len(X_train)})
-
-        X_val, y_val = None, None
-        if os.path.exists(val_path):
-            print(f"Loading validation data from {val_path}...")
-            df_val = pd.read_parquet(val_path)
-            X_val, y_val = prepare_X_y(df_val)
-            mlflow.log_metrics({"val_samples": len(X_val)})
-            
-        X_test, y_test = None, None
-        if os.path.exists(test_path):
-            print(f"Loading test data from {test_path}...")
-            df_test = pd.read_parquet(test_path)
-            X_test, y_test = prepare_X_y(df_test)
-            mlflow.log_metrics({"test_samples": len(X_test)})
-
-        # 3. Train XGBoost model
-        print("Initializing XGBoost model...")
-        n_estimators = params.pop('n_estimators', 1000)
-        model = xgb.XGBRegressor(**params, n_estimators=n_estimators, random_state=42)
-        
-        print("Training XGBoost Regressor...")
-        if X_val is not None and y_val is not None:
-            model.fit(
-                X_train, y_train,
-                eval_set=[(X_train, y_train), (X_val, y_val)],
-                verbose=50
-            )
-        else:
-            model.fit(X_train, y_train)
-
-        mlflow.sklearn.log_model(
-            model,
-            artifact_path=f"xgboost-{run.info.run_id}",
-            skops_trusted_types=["xgboost.core.Booster", "xgboost.sklearn.XGBRegressor"]
+    X_train, y_train = load_processed_split(paths, "train")
+    X_val, y_val = load_processed_split(paths, "val")
+    X_test, y_test = load_processed_split(paths, "test")
+    if X_train is None:
+        raise FileNotFoundError(f"Training dataset not found in {paths.processed_dir}")
+    if not paths.preprocessor_file.exists():
+        raise FileNotFoundError(
+            f"Preprocessor artifact not found at {paths.preprocessor_file}. "
+            "Run the fit_preprocessor DVC stage before training."
         )
 
-        # Save model locally for evaluation (not tracked by DVC)
-        os.makedirs(models_dir, exist_ok=True)
-        model_local_path = os.path.join(models_dir, "model.pkl")
-        print(f"Saving trained model locally to {model_local_path}...")
-        joblib.dump(model, model_local_path)
-    
-        # 4. Evaluate model
-        print("\n--- EVALUATION METRICS ---")
-        
-        # Evaluate Train
-        preds_train = model.predict(X_train)
-        rmse_train = root_mean_squared_error(y_train, preds_train)
-        mae_train = mean_absolute_error(y_train, preds_train)
-        print(f"Train Dataset: RMSE = {rmse_train:.4f} mins | MAE = {mae_train:.4f} mins")
+    ensure_dir(paths.models_dir)
+    ensure_dir(paths.reports_dir)
 
-        mlflow.log_metrics({
-            'rmse_train': rmse_train,
-            'mae_train': mae_train
-        })
-        
-        # Evaluate Val
-        if X_val is not None and y_val is not None:
-            preds_val = model.predict(X_val)
-            rmse_val = root_mean_squared_error(y_val, preds_val)
-            mae_val = mean_absolute_error(y_val, preds_val)
-            print(f"Val Dataset:   RMSE = {rmse_val:.4f} mins | MAE = {mae_val:.4f} mins")
+    with mlflow.start_run() as run:
+        print(f"MLflow run_id: {run.info.run_id}")
+        mlflow.log_params(train_params)
+        mlflow.log_metrics(
+            {
+                "train_samples": len(X_train),
+                "val_samples": 0 if X_val is None else len(X_val),
+                "test_samples": 0 if X_test is None else len(X_test),
+            }
+        )
 
-            mlflow.log_metrics({
-                'rmse_val': rmse_val,
-                'mae_val': mae_val
-            })            
-            
-        # Evaluate Test
-        if X_test is not None and y_test is not None:
-            preds_test = model.predict(X_test)
-            rmse_test = root_mean_squared_error(y_test, preds_test)
-            mae_test = mean_absolute_error(y_test, preds_test)
-            print(f"Test Dataset:  RMSE = {rmse_test:.4f} mins | MAE = {mae_test:.4f} mins")
+        model = build_model(train_params)
+        eval_set = [(X_train, y_train)]
+        if X_val is not None:
+            eval_set.append((X_val, y_val))
 
-            mlflow.log_metrics({
-                'rmse_test': rmse_test,
-                'mae_test': mae_test
-            })
-        
-        # Log Artifacts
-        mlflow.log_artifact("artifacts/preprocessor.pkl")
-        
+        started_at = time.time()
+        model.fit(X_train, y_train, eval_set=eval_set, verbose=False)
+        train_time = time.time() - started_at
 
-        print("Model training stage completed successfully.")
+        metrics = {"train_time": train_time}
+        for split, X, y in [ 
+            ("train", X_train, y_train),
+            ("val", X_val, y_val),
+            ("test", X_test, y_test),
+        ]:
+            metrics.update(evaluate_split(model, X, y, split))
+
+        save_json(metrics, paths.metrics_file)
+        joblib.dump(model, paths.model_file)
+        mlflow.log_metrics(metrics)
+        mlflow.log_artifact(
+            str(paths.preprocessor_file),
+        )
+
+        # Fail the run early if the preprocessor cannot be retrieved from its MLflow artifact URI.
+        mlflow.artifacts.download_artifacts(
+            run_id=run.info.run_id,
+            artifact_path=PREPROCESSOR_ARTIFACT_PATH,
+            dst_path=paths.artifacts_dir
+        )
+
+        model_info = mlflow.xgboost.log_model(
+            xgb_model=model,
+            name=f"model-{run.info.run_id}",
+            model_format="json",
+            registered_model_name=None,
+        )
+
+        run_info = {
+            "run_id": run.info.run_id,
+            "model_name": settings.model_name,
+            "model_uri": model_info.model_uri,
+            "preprocessor_artifact_path": str(paths.preprocessor_file),
+            "metrics_path": str(paths.metrics_file),
+        }
+        save_json(run_info, paths.run_info_file)
+
+    print(f"Saved model to {paths.model_file}")
+    print(f"Saved preprocessor to {paths.preprocessor_file}")
+    print(f"Saved metrics to {paths.metrics_file}")
+    print(f"Saved MLflow run metadata to {paths.run_info_file}")
+
 
 if __name__ == "__main__":
     main()

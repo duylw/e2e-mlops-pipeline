@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   mlflow-server:
     image: python:3.12-slim
@@ -7,10 +5,24 @@ services:
     ports:
       - "5000:5000"
     volumes:
-      # Mount thư mục tmp hiện tại trên máy host vào container để đồng bộ DB & artifacts
       - ./tmp:/app/tmp
+      - ./tmp/mlflow-artifacts:/mlflow-artifacts
     working_dir: /app
     command: >
       sh -c "pip install mlflow && 
              mkdir -p tmp && 
-             mlflow server --host 0.0.0.0 --port 5000 --allowed-hosts '*' --backend-store-uri sqlite:///tmp/mlflow.db --default-artifact-root /app/tmp/mlflow_artifact"
+             mlflow server --host 0.0.0.0 --port 5000 --allowed-hosts '*' --backend-store-uri sqlite:///tmp/mlflow.db --serve-artifacts --artifacts-destination /mlflow-artifacts"
+
+  serving-api:
+    build:
+      context: .
+      dockerfile: src/serving/Dockerfile
+    container_name: serving-api
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mlflow-server
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow-server:5000
+      - MODEL_NAME=${MODEL_NAME:-green_taxi_duration_model}
+      - SERVING_MODEL_ALIAS=${SERVING_MODEL_ALIAS:-champion}

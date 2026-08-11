@@ -23,6 +23,8 @@ stages:
     deps:
       - data/split/train_raw.parquet
       - src/data/fit_preprocessor.py
+      - src/config
+      - src/features
     outs:
       - artifacts/preprocessor.pkl
 
@@ -32,6 +34,8 @@ stages:
       - data/split
       - artifacts/preprocessor.pkl
       - src/data/transform.py
+      - src/config
+      - src/features
     outs:
       - data/processed
 
@@ -42,4 +46,24 @@ stages:
     deps:
       - data/processed
       - artifacts/preprocessor.pkl
+      - src/config
+      - src/features
       - src/training/train.py
+    outs:
+      - models/model.pkl:
+          cache: false
+      - reports/mlflow_run.json:
+          cache: false
+    metrics:
+      - reports/metrics.json:
+          cache: false
+
+  # register_model:
+  #   cmd: python -m src.training.register_model
+  #   deps:
+  #     - reports/mlflow_run.json
+  #     - reports/metrics.json
+  #     - src/config
+  #     - src/training/register_model.py
+  #   outs:
+  #     - reports/registry.json

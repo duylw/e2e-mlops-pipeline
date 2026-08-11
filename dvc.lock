@@ -5,8 +5,8 @@ stages:
     deps:
     - path: src/data/ingest.py
       hash: md5
-      md5: 2d6728d991f698be2f33712f44201067
-      size: 3508
+      md5: b1f51693e21c0a34e9ef8872e4413720
+      size: 3413
     params:
       params.yaml:
         ingest:
@@ -32,8 +32,8 @@ stages:
       nfiles: 2
     - path: src/data/split.py
       hash: md5
-      md5: e6a7963dd484b7774fc360a94edde1fb
-      size: 1900
+      md5: 87db3205a1a5843d66385163c585c812
+      size: 1904
     outs:
     - path: data/split/test_raw.parquet
       hash: md5
@@ -54,31 +54,51 @@ stages:
       hash: md5
       md5: 8908f0d140557e3564d3e7a24dc62384
       size: 2170253
+    - path: src/config
+      hash: md5
+      md5: 3d92e42c2b1c527dbdfd3e414caf775f.dir
+      size: 12616
+      nfiles: 9
     - path: src/data/fit_preprocessor.py
       hash: md5
-      md5: f6866c82d4d5d58d62b382cbe741e8e8
-      size: 2423
+      md5: b819026b1cf5aaaa67c1c1cc4cad800c
+      size: 1501
+    - path: src/features
+      hash: md5
+      md5: c7368bedc45a08903e585c8dd23bec7d.dir
+      size: 37744
+      nfiles: 12
     outs:
     - path: artifacts/preprocessor.pkl
       hash: md5
-      md5: d88280b68d1853bed357759262074387
-      size: 22176
+      md5: 64ecf04c8093074ecda71dbc3d104b2f
+      size: 22250
   transform:
     cmd: python -m src.data.transform
     deps:
     - path: artifacts/preprocessor.pkl
       hash: md5
-      md5: d88280b68d1853bed357759262074387
-      size: 22176
+      md5: 64ecf04c8093074ecda71dbc3d104b2f
+      size: 22250
     - path: data/split
       hash: md5
       md5: fd85268bfe569996b17ce3a0b1b437fc.dir
       size: 3627586
       nfiles: 4
+    - path: src/config
+      hash: md5
+      md5: 3d92e42c2b1c527dbdfd3e414caf775f.dir
+      size: 12616
+      nfiles: 9
     - path: src/data/transform.py
       hash: md5
-      md5: e9b251fa19cc9ce3891a6d785d16a625
-      size: 1937
+      md5: df09c2271b036f72852df140e4565a2b
+      size: 1662
+    - path: src/features
+      hash: md5
+      md5: c7368bedc45a08903e585c8dd23bec7d.dir
+      size: 37744
+      nfiles: 12
     outs:
     - path: data/processed
       hash: md5
@@ -90,17 +110,27 @@ stages:
     deps:
     - path: artifacts/preprocessor.pkl
       hash: md5
-      md5: d88280b68d1853bed357759262074387
-      size: 22176
+      md5: 64ecf04c8093074ecda71dbc3d104b2f
+      size: 22250
     - path: data/processed
       hash: md5
       md5: 61295dfdf1dca238cce5226e34cf0b7a.dir
       size: 838461
       nfiles: 3
+    - path: src/config
+      hash: md5
+      md5: 3d92e42c2b1c527dbdfd3e414caf775f.dir
+      size: 12616
+      nfiles: 9
+    - path: src/features
+      hash: md5
+      md5: c7368bedc45a08903e585c8dd23bec7d.dir
+      size: 37744
+      nfiles: 12
     - path: src/training/train.py
       hash: md5
-      md5: f3d99ee6bf81f5a6d9fb1b78efa9e9ae
-      size: 5170
+      md5: 7b4ccbe217425177a37d25a6a3b1e519
+      size: 5032
     params:
       params.yaml:
         train:
@@ -111,3 +141,76 @@ stages:
           colsample_bytree: 0.6552
           gamma: 4.7917
           n_estimators: 309
+    outs:
+    - path: models/model.pkl
+      hash: md5
+      md5: d9c906f7d111439be1339f5984ed81f2
+      size: 2132342
+    - path: reports/metrics.json
+      hash: md5
+      md5: 7aaac4ddbd2fbb6f8d90d0bb3b8ab37e
+      size: 398
+    - path: reports/mlflow_run.json
+      hash: md5
+      md5: d7d1a58640b9f5e1eb2f35b690a729f5
+      size: 268
+  evaluate:
+    cmd: python -m src.training.evaluate
+    deps:
+    - path: data/processed
+      hash: md5
+      md5: 61295dfdf1dca238cce5226e34cf0b7a.dir
+      size: 838461
+      nfiles: 3
+    - path: models/model.pkl
+      hash: md5
+      md5: d9c906f7d111439be1339f5984ed81f2
+      size: 2132342
+    - path: reports/mlflow_run.json
+      hash: md5
+      md5: 5434d84f07ae6ad0551e39c7e8a54dcf
+      size: 238
+    - path: src/config
+      hash: md5
+      md5: 3d92e42c2b1c527dbdfd3e414caf775f.dir
+      size: 12616
+      nfiles: 9
+    - path: src/features
+      hash: md5
+      md5: c7368bedc45a08903e585c8dd23bec7d.dir
+      size: 37744
+      nfiles: 12
+    - path: src/training/evaluate.py
+      hash: md5
+      md5: 75bc5bf4904d47afeb6263f55c9f3528
+      size: 1707
+    outs:
+    - path: reports/metrics.json
+      hash: md5
+      md5: 4a3232d697fbdf5040f25782d1102dc2
+      size: 363
+  register_model:
+    cmd: python -m src.training.register_model
+    deps:
+    - path: reports/metrics.json
+      hash: md5
+      md5: 782632368ce76fe8e89fc411d93d65ef
+      size: 362
+    - path: reports/mlflow_run.json
+      hash: md5
+      md5: 7a32ac6e5d8c56ebc1ff4e83f9d74139
+      size: 238
+    - path: src/config
+      hash: md5
+      md5: 3d92e42c2b1c527dbdfd3e414caf775f.dir
+      size: 12616
+      nfiles: 9
+    - path: src/training/register_model.py
+      hash: md5
+      md5: 3baae6eca6f6cfb7216f7d376fe46519
+      size: 2653
+    outs:
+    - path: reports/registry.json
+      hash: md5
+      md5: b593cbea440cda03d14ae2e1e05d8c76
+      size: 217

@@ -1,8 +1,11 @@
-import os
-import yaml
-import pandas as pd
 import glob
-from src.utils import download_taxi_zones, create_coordinate_lookup
+import os
+
+import pandas as pd
+import yaml
+
+from src.utils import create_coordinate_lookup, download_taxi_zones
+
 
 def load_params(params_path="params.yaml"):
     with open(params_path, 'r') as f:
@@ -49,8 +52,6 @@ def main():
     for year in years:
         for month in months:
             url = f"https://d37ci6vzurychx.cloudfront.net/trip-data/green_tripdata_{year}-{month:02d}.parquet"
-            temp_parquet = f"tmp/green_tripdata_{year}-{month:02d}.parquet"
-            
             print(f"Downloading parquet from {url}...")
             # Use pandas read_parquet directly from URL, or download first
             try:

@@ -1,7 +1,7 @@
 {
-  "latency_per_row_test": 6.05181198390347e-06,
-  "latency_per_row_train": 4.710121567974232e-06,
-  "latency_per_row_val": 5.3888911892867455e-06,
+  "latency_per_row_test": 7.453686310190935e-06,
+  "latency_per_row_train": 5.793246768054006e-06,
+  "latency_per_row_val": 5.453740931815743e-06,
   "mae_test": 4.80651944472575,
   "mae_train": 4.567666400200345,
   "mae_val": 4.842310419932919,
@@ -10,6 +10,6 @@
   "rmse_val": 8.728051126821727,
   "test_samples": 24062.0,
   "train_samples": 72469.0,
-  "train_time": 1.6458634999580681,
+  "train_time": 2.0278216000879183,
   "val_samples": 24125.0
 }

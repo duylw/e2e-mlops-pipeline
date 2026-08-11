@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from pathlib import Path
 
 import mlflow
 import mlflow.sklearn
@@ -32,6 +33,7 @@ class MlflowTrainingTracker:
         params: dict,
         metrics: dict[str, float],
         input_example: pd.DataFrame,
+        report_artifacts: list[Path],
     ) -> LoggedModel:
         signature_input = self._signature_input(input_example)
         predictions = model.predict(signature_input)
@@ -40,6 +42,8 @@ class MlflowTrainingTracker:
         with mlflow.start_run() as run:
             mlflow.log_params(params)
             mlflow.log_metrics(metrics)
+            for artifact_path in report_artifacts:
+                mlflow.log_artifact(str(artifact_path), artifact_path="reports")
             model_info = mlflow.sklearn.log_model(
                 sk_model=model,
                 name=f"model-{run.info.run_id}",

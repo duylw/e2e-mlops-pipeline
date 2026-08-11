@@ -32,6 +32,8 @@ stages:
     outs:
       - reports/mlflow_run.json:
           cache: false
+      - reports/feature_importance.png:
+          cache: false
     metrics:
       - reports/metrics.json:
           cache: false

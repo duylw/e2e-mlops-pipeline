@@ -1,8 +1,11 @@
 import time
 from dataclasses import dataclass
+from pathlib import Path
 
 import pandas as pd
 import xgboost as xgb
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+from matplotlib.figure import Figure
 from sklearn.metrics import mean_absolute_error, root_mean_squared_error
 from sklearn.pipeline import Pipeline
 
@@ -81,20 +84,24 @@ class TrainingPipeline:
                 }
             )
 
+        ensure_dir(self.paths.reports_dir)
+        save_json(metrics, self.paths.metrics_file)
+        self.plot_feature_importance(model, self.paths.feature_importance_file)
+
         logged_model = self.tracker.log_training_run(
             model=model,
             params=self.train_params,
             metrics=metrics,
             input_example=train.X.head(3),
+            report_artifacts=[self.paths.metrics_file, self.paths.feature_importance_file],
         )
-        ensure_dir(self.paths.reports_dir)
-        save_json(metrics, self.paths.metrics_file)
         save_json(
             {
                 "run_id": logged_model.run_id,
                 "model_name": self.tracker.settings.model_name,
                 "model_uri": logged_model.model_uri,
                 "metrics_path": str(self.paths.metrics_file),
+                "feature_importance_path": str(self.paths.feature_importance_file),
             },
             self.paths.run_info_file,
         )
@@ -131,3 +138,25 @@ class TrainingPipeline:
             mae=mean_absolute_error(split.y, predictions),
             latency_per_row=latency_per_row,
         )
+
+    @staticmethod
+    def plot_feature_importance(model: Pipeline, output_path: Path, top_n: int = 20) -> pd.DataFrame:
+        """Save a ranked feature-importance plot and return the full importance table."""
+        if not hasattr(model.named_steps["model"], "feature_importances_"):
+            raise ValueError("Model does not have feature_importances_ attribute")
+        feature_names = model.named_steps["features"].get_feature_names_out()
+        importances = model.named_steps["model"].feature_importances_
+        importance_table = pd.DataFrame({"feature": feature_names, "importance": importances}).sort_values(
+            by="importance", ascending=False
+        )
+        top_features = importance_table.head(top_n).sort_values("importance")
+
+        figure = Figure(figsize=(10, max(4, len(top_features) * 0.35)))
+        FigureCanvasAgg(figure)
+        axis = figure.subplots()
+        axis.barh(top_features["feature"], top_features["importance"], color="#2563eb")
+        axis.set_xlabel("XGBoost feature importance")
+        axis.set_title(f"Top {len(top_features)} Feature Importances")
+        figure.tight_layout()
+        figure.savefig(output_path, dpi=150, bbox_inches="tight")
+        return importance_table.reset_index(drop=True)

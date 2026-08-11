@@ -31,5 +31,9 @@ class ProjectPaths:
         return self.reports_dir / "metrics.json"
 
     @property
+    def feature_importance_file(self) -> Path:
+        return self.reports_dir / "feature_importance.png"
+
+    @property
     def run_info_file(self) -> Path:
         return self.reports_dir / "mlflow_run.json"

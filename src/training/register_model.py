@@ -21,7 +21,7 @@ def promote_if_better(client: MlflowClient, model_name: str, new_version, new_rm
         client.set_registered_model_alias(model_name, "champion", new_version.version)
         return "champion"
 
-    if champion_rmse is None or new_rmse < champion_rmse:
+    if champion_rmse is None or new_rmse <= champion_rmse:
         client.set_registered_model_alias(model_name, "champion", new_version.version)
         return "champion"
 

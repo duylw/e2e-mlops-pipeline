@@ -18,52 +18,30 @@ stages:
       - data/split/val_raw.parquet
       - data/split/test_raw.parquet
 
-  fit_preprocessor:
-    cmd: python -m src.data.fit_preprocessor
-    deps:
-      - data/split/train_raw.parquet
-      - src/data/fit_preprocessor.py
-      - src/config
-      - src/features
-    outs:
-      - artifacts/preprocessor.pkl
-
-  transform:
-    cmd: python -m src.data.transform
-    deps:
-      - data/split
-      - artifacts/preprocessor.pkl
-      - src/data/transform.py
-      - src/config
-      - src/features
-    outs:
-      - data/processed
-
   train:
     cmd: python -m src.training.train
     params:
       - train
     deps:
-      - data/processed
-      - artifacts/preprocessor.pkl
+      - data/split
+      - data/raw/nyc_taxi_lookup_with_coords.csv
       - src/config
+      - src/data/preparation.py
       - src/features
-      - src/training/train.py
+      - src/training
     outs:
-      - models/model.pkl:
-          cache: false
       - reports/mlflow_run.json:
           cache: false
     metrics:
       - reports/metrics.json:
           cache: false
 
-  # register_model:
-  #   cmd: python -m src.training.register_model
-  #   deps:
-  #     - reports/mlflow_run.json
-  #     - reports/metrics.json
-  #     - src/config
-  #     - src/training/register_model.py
-  #   outs:
-  #     - reports/registry.json
+  register_model:
+    cmd: python -m src.training.register_model
+    deps:
+      - reports/mlflow_run.json
+      - src/config
+      - src/training/register_model.py
+    outs:
+      - reports/registry.json:
+          cache: false

@@ -1,0 +1,34 @@
+[
+    {
+        "VendorID": 2,
+        "lpep_pickup_datetime": "2026-01-15 08:30:00",
+        "PULocationID": 74,
+        "DOLocationID": 42,
+        "passenger_count": 1,
+        "trip_type": 1
+    },
+    {
+        "VendorID": 1,
+        "lpep_pickup_datetime": "2026-01-15 23:45:00",
+        "PULocationID": 7,
+        "DOLocationID": 179,
+        "passenger_count": 2,
+        "trip_type": 1
+    },
+    {
+        "VendorID": 2,
+        "lpep_pickup_datetime": "2026-01-16 17:15:00",
+        "PULocationID": 41,
+        "DOLocationID": 244,
+        "passenger_count": 1,
+        "trip_type": 2
+    },
+    {
+        "VendorID": 1,
+        "lpep_pickup_datetime": "2026-01-17 03:00:00",
+        "PULocationID": 82,
+        "DOLocationID": 129,
+        "passenger_count": null,
+        "trip_type": null
+    }
+]

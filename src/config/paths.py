@@ -37,3 +37,7 @@ class ProjectPaths:
     @property
     def run_info_file(self) -> Path:
         return self.reports_dir / "mlflow_run.json"
+
+    @property
+    def monitoring_dir(self) -> Path:
+        return self.reports_dir / "monitoring"

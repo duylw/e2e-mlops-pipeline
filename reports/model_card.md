@@ -37,6 +37,15 @@ This avoids random future-to-past leakage and better matches real taxi demand fo
 
 Primary metrics are RMSE and MAE in minutes. DVC tracks them in `reports/metrics.json`.
 
+## Monitoring
+
+- Evidently batch monitoring compares current data with train input distribution
+  and validation quality distribution from the same DVC revision as the champion.
+- Input monitoring tracks missingness and feature drift for serving-compatible
+  fields and pickup-time features.
+- Labeled batches also track regression quality, target drift, and prediction drift.
+- Monitoring reports are logged to MLflow; raw reference Parquet remains managed by DVC.
+
 ## Known Limitations
 
 - TLC zone centroid distance is an approximation, not route distance.

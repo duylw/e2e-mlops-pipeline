@@ -22,6 +22,7 @@ src/
   data/        ingest, split, target preparation
   features/    stateless engineering and sklearn transformer
   training/    pipeline training, MLflow tracking, registry promotion
+  monitoring/  Evidently batch monitoring for registered models
   serving/     FastAPI app, schemas, MLflow model loader
   utils/       geo and IO helpers
 tests/         unit and schema tests
@@ -127,6 +128,25 @@ Example response:
 pytest
 python -m compileall src main.py
 ```
+
+## Batch Monitoring
+
+Evidently evaluates a current Parquet batch against the DVC-managed training and
+validation splits associated with the registered `champion` model. It does not
+copy Parquet files into MLflow. Training logs Git/DVC lineage and split time-range tags;
+retrain and register the champion once before the first monitoring run.
+
+```bash
+python -m src.monitoring.run \
+  --current-path data/split/test_raw.parquet \
+  --current-name test-2026-04
+```
+
+The command creates ignored HTML and JSON reports under `reports/monitoring/`
+and logs them with Evidently-derived metrics to the
+`green_taxi_duration_monitoring` MLflow experiment. A current file containing
+only the six API input fields runs input drift monitoring without regression
+quality metrics.
 
 ## Portfolio Notes
 

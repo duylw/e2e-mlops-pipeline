@@ -61,8 +61,8 @@ stages:
       nfiles: 4
     - path: src/config
       hash: md5
-      md5: 6876e4197504201815445fb4f4089d9a.dir
-      size: 11385
+      md5: 163b06ff0ce8cf208d49aa090485bdb4.dir
+      size: 11681
       nfiles: 9
     - path: src/data/preparation.py
       hash: md5
@@ -75,8 +75,8 @@ stages:
       nfiles: 12
     - path: src/training
       hash: md5
-      md5: 795fe1ae0ce54f87456d451d09413e4b.dir
-      size: 56420
+      md5: 49f30032ac434260e9dc266658d33da0.dir
+      size: 57526
       nfiles: 15
     params:
       params.yaml:
@@ -95,23 +95,23 @@ stages:
       size: 75370
     - path: reports/metrics.json
       hash: md5
-      md5: 17c83aace5b625a75da24802f8e8322a
-      size: 479
+      md5: ab4208d374c06b4a338dcab6a6aaccc2
+      size: 396
     - path: reports/mlflow_run.json
       hash: md5
-      md5: aa09316ed7f802788f2fa85eb9f166d1
+      md5: b2ca421490337a1e48b03e45c473a961
       size: 269
   register_model:
     cmd: python -m src.training.register_model
     deps:
     - path: reports/mlflow_run.json
       hash: md5
-      md5: aa09316ed7f802788f2fa85eb9f166d1
+      md5: b2ca421490337a1e48b03e45c473a961
       size: 269
     - path: src/config
       hash: md5
-      md5: 6876e4197504201815445fb4f4089d9a.dir
-      size: 11385
+      md5: 163b06ff0ce8cf208d49aa090485bdb4.dir
+      size: 11681
       nfiles: 9
     - path: src/training/register_model.py
       hash: md5
@@ -120,5 +120,5 @@ stages:
     outs:
     - path: reports/registry.json
       hash: md5
-      md5: 4c507820d60744494151f13378587e30
+      md5: 4979781de05c13530e69033a80a84b10
       size: 213

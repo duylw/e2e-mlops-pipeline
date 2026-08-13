@@ -12,6 +12,7 @@ from sklearn.pipeline import Pipeline
 from src.config.paths import ProjectPaths
 from src.data.preparation import prepare_training_data
 from src.features.transformer import NYCGreenTaxiFeatureTransformer
+from src.monitoring.lineage import build_training_lineage
 from src.training.tracker import MlflowTrainingTracker
 from src.utils.io import ensure_dir, save_json
 
@@ -20,6 +21,7 @@ from src.utils.io import ensure_dir, save_json
 class SplitData:
     X: pd.DataFrame
     y: pd.Series
+    source_path: Path
 
 
 @dataclass(frozen=True)
@@ -34,6 +36,16 @@ class TrainingResult:
     run_id: str
     model_uri: str
     metrics: dict[str, float]
+
+
+def build_training_params(train: SplitData, validation: SplitData, test: SplitData, model_params: dict) -> dict:
+    """Combine fixed model configuration and split sizes as MLflow params."""
+    return {
+        **model_params,
+        "data_train_rows": len(train.X),
+        "data_validation_rows": len(validation.X),
+        "data_test_rows": len(test.X),
+    }
 
 
 def create_xgboost_model(params: dict) -> xgb.XGBRegressor:
@@ -69,9 +81,6 @@ class TrainingPipeline:
         train_time = time.perf_counter() - started_at
 
         metrics = {
-            "train_samples": float(len(train.X)),
-            "val_samples": float(len(validation.X)),
-            "test_samples": float(len(test.X)),
             "train_time": train_time,
         }
         for split_name, split_data in (("train", train), ("val", validation), ("test", test)):
@@ -90,10 +99,11 @@ class TrainingPipeline:
 
         logged_model = self.tracker.log_training_run(
             model=model,
-            params=self.train_params,
+            params=build_training_params(train, validation, test, self.train_params),
             metrics=metrics,
             input_example=train.X.head(3),
             report_artifacts=[self.paths.metrics_file, self.paths.feature_importance_file],
+            lineage_tags=build_training_lineage(self.paths, train, validation),
         )
         save_json(
             {
@@ -118,7 +128,7 @@ class TrainingPipeline:
         X, y = prepare_training_data(pd.read_parquet(split_path))
         if X.empty:
             raise ValueError(f"No usable rows remain in the {split} split after preparation")
-        return SplitData(X=X, y=y)
+        return SplitData(X=X, y=y, source_path=split_path)
 
     def _build_model(self, lookup_df: pd.DataFrame) -> Pipeline:
         return Pipeline(

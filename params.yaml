@@ -10,3 +10,9 @@ train:
   colsample_bytree: 0.6552
   gamma: 4.7917
   n_estimators: 309
+
+monitoring:
+  reference_max_rows: 20000
+  current_max_rows: 50000
+  random_seed: 42
+  drift_warning_share: 0.30

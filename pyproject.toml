@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "dvc>=3.67.1",
+    "evidently>=0.7.21,<0.8",
     "fastapi>=0.116.0",
     "geopandas>=1.1.4",
     "httpx>=0.28.0",
@@ -36,4 +37,4 @@ ignore = ["E501"]
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
-addopts = "-p no:cacheprovider --basetemp=tmp/pytest-runtime"
+addopts = "-p no:cacheprovider --basetemp=.pytest-tmp"

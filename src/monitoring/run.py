@@ -1,4 +1,5 @@
 import argparse
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -12,6 +13,13 @@ from src.monitoring.reports import build_input_report, build_quality_report, sav
 from src.utils.io import ensure_dir, save_json
 
 MONITORING_EXPERIMENT_NAME = "green_taxi_duration_monitoring"
+
+
+def configure_console_encoding() -> None:
+    if sys.platform == "win32":
+        for stream in (sys.stdout, sys.stderr):
+            if hasattr(stream, "reconfigure"):
+                stream.reconfigure(encoding="utf-8")
 
 
 def run_monitoring(current_path: str | Path, current_name: str | None = None) -> dict:
@@ -139,6 +147,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    configure_console_encoding()
     args = parse_args()
     summary = run_monitoring(args.current_path, args.current_name)
     print(f"Monitoring complete: {summary['monitoring_run_id']}")

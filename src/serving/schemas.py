@@ -1,6 +1,7 @@
+from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class TripInput(BaseModel):
@@ -14,6 +15,15 @@ class TripInput(BaseModel):
     DOLocationID: int = Field(..., description="Dropoff TLC Taxi Zone LocationID", examples=[42])
     passenger_count: Optional[float] = Field(None, description="Number of passengers", examples=[1.0])
     trip_type: Optional[float] = Field(None, description="Trip type: 1.0 street-hail, 2.0 dispatch", examples=[1.0])
+
+    @field_validator("lpep_pickup_datetime")
+    @classmethod
+    def validate_pickup_datetime(cls, value: str) -> str:
+        try:
+            datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
+        except ValueError as exc:
+            raise ValueError("must use YYYY-MM-DD HH:MM:SS format") from exc
+        return value
 
 
 class PredictRequest(BaseModel):

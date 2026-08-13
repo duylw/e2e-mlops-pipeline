@@ -48,6 +48,16 @@ def build_training_params(train: SplitData, validation: SplitData, test: SplitDa
     }
 
 
+def load_split(paths: ProjectPaths, split: str) -> SplitData:
+    split_path = paths.split_dir / f"{split}_raw.parquet"
+    if not split_path.exists():
+        raise FileNotFoundError(f"Required {split} split not found at {split_path}")
+    X, y = prepare_training_data(pd.read_parquet(split_path))
+    if X.empty:
+        raise ValueError(f"No usable rows remain in the {split} split after preparation")
+    return SplitData(X=X, y=y, source_path=split_path)
+
+
 def create_xgboost_model(params: dict) -> xgb.XGBRegressor:
     model_params = dict(params)
     n_estimators = model_params.pop("n_estimators", 1000)
@@ -58,6 +68,16 @@ def create_xgboost_model(params: dict) -> xgb.XGBRegressor:
         eval_metric="rmse",
         random_state=42,
         n_jobs=-1,
+    )
+
+
+def build_model_pipeline(lookup_df: pd.DataFrame, train_params: dict) -> Pipeline:
+    """Build the single raw-input pipeline used by training, tuning, and serving."""
+    return Pipeline(
+        steps=[
+            ("features", NYCGreenTaxiFeatureTransformer(lookup_df=lookup_df)),
+            ("model", create_xgboost_model(train_params)),
+        ]
     )
 
 
@@ -96,13 +116,23 @@ class TrainingPipeline:
         ensure_dir(self.paths.reports_dir)
         save_json(metrics, self.paths.metrics_file)
         self.plot_feature_importance(model, self.paths.feature_importance_file)
+        self.plot_error_analysis(model, test, self.paths.error_analysis_file)
+        save_json(
+            self.build_segment_metrics(model, test, lookup_df),
+            self.paths.segment_metrics_file,
+        )
 
         logged_model = self.tracker.log_training_run(
             model=model,
             params=build_training_params(train, validation, test, self.train_params),
             metrics=metrics,
             input_example=train.X.head(3),
-            report_artifacts=[self.paths.metrics_file, self.paths.feature_importance_file],
+            report_artifacts=[
+                self.paths.metrics_file,
+                self.paths.feature_importance_file,
+                self.paths.error_analysis_file,
+                self.paths.segment_metrics_file,
+            ],
             lineage_tags=build_training_lineage(self.paths, train, validation),
         )
         save_json(
@@ -122,21 +152,10 @@ class TrainingPipeline:
         )
 
     def _load_split(self, split: str) -> SplitData:
-        split_path = self.paths.split_dir / f"{split}_raw.parquet"
-        if not split_path.exists():
-            raise FileNotFoundError(f"Required {split} split not found at {split_path}")
-        X, y = prepare_training_data(pd.read_parquet(split_path))
-        if X.empty:
-            raise ValueError(f"No usable rows remain in the {split} split after preparation")
-        return SplitData(X=X, y=y, source_path=split_path)
+        return load_split(self.paths, split)
 
     def _build_model(self, lookup_df: pd.DataFrame) -> Pipeline:
-        return Pipeline(
-            steps=[
-                ("features", NYCGreenTaxiFeatureTransformer(lookup_df=lookup_df)),
-                ("model", create_xgboost_model(self.train_params)),
-            ]
-        )
+        return build_model_pipeline(lookup_df, self.train_params)
 
     @staticmethod
     def _evaluate(model: Pipeline, split: SplitData) -> SplitMetrics:
@@ -170,3 +189,54 @@ class TrainingPipeline:
         figure.tight_layout()
         figure.savefig(output_path, dpi=150, bbox_inches="tight")
         return importance_table.reset_index(drop=True)
+
+    @staticmethod
+    def plot_error_analysis(model: Pipeline, split: SplitData, output_path: Path) -> None:
+        """Save prediction and residual views for the final held-out test split."""
+        predictions = model.predict(split.X)
+        residuals = split.y.to_numpy() - predictions
+        figure = Figure(figsize=(11, 4.5))
+        FigureCanvasAgg(figure)
+        actual_axis, residual_axis = figure.subplots(1, 2)
+        actual_axis.scatter(split.y, predictions, alpha=0.35, s=12, color="#2563eb")
+        limits = [min(split.y.min(), predictions.min()), max(split.y.max(), predictions.max())]
+        actual_axis.plot(limits, limits, color="#dc2626", linestyle="--")
+        actual_axis.set(title="Actual vs Predicted Duration", xlabel="Actual minutes", ylabel="Predicted minutes")
+        residual_axis.hist(residuals, bins=40, color="#059669", edgecolor="white")
+        residual_axis.axvline(0, color="#dc2626", linestyle="--")
+        residual_axis.set(title="Test Residual Distribution", xlabel="Actual - predicted (minutes)", ylabel="Trips")
+        figure.tight_layout()
+        figure.savefig(output_path, dpi=150, bbox_inches="tight")
+
+    @staticmethod
+    def build_segment_metrics(model: Pipeline, split: SplitData, lookup_df: pd.DataFrame, minimum_rows: int = 100) -> dict:
+        """Evaluate the held-out test split by business-relevant, sufficiently large segments."""
+        predictions = pd.Series(model.predict(split.X), index=split.X.index, name="prediction")
+        evaluation = split.X.copy()
+        evaluation["duration"] = split.y
+        evaluation["prediction"] = predictions
+        evaluation["pickup_hour"] = pd.to_datetime(evaluation["lpep_pickup_datetime"]).dt.hour
+        borough_lookup = lookup_df.set_index("LocationID")["Borough"]
+        evaluation["PU_Borough"] = evaluation["PULocationID"].map(borough_lookup).fillna("Unknown")
+        evaluation["trip_type"] = evaluation["trip_type"].fillna("__missing__").astype(str)
+
+        return {
+            segment_name: TrainingPipeline._group_metrics(evaluation, segment_name, minimum_rows)
+            for segment_name in ("pickup_hour", "PU_Borough", "trip_type")
+        }
+
+    @staticmethod
+    def _group_metrics(evaluation: pd.DataFrame, group_column: str, minimum_rows: int) -> list[dict]:
+        results = []
+        for group, frame in evaluation.groupby(group_column, dropna=False):
+            if len(frame) < minimum_rows:
+                continue
+            results.append(
+                {
+                    "segment": str(group),
+                    "rows": len(frame),
+                    "rmse": root_mean_squared_error(frame["duration"], frame["prediction"]),
+                    "mae": mean_absolute_error(frame["duration"], frame["prediction"]),
+                }
+            )
+        return sorted(results, key=lambda item: item["rmse"], reverse=True)

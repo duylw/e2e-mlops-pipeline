@@ -4,4 +4,8 @@
 /mlflow_run.json
 /registry.json
 /feature_importance.png
+/error_analysis.png
+/segment_metrics.json
+/tuning.json
+/serving_benchmark.json
 /monitoring/

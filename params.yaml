@@ -3,13 +3,16 @@ ingest:
   months: [2, 3, 4]
 
 train:
-  max_depth: 7
-  learning_rate: 0.0345
-  min_child_weight: 9
-  subsample: 0.6030
-  colsample_bytree: 0.6552
-  gamma: 4.7917
-  n_estimators: 309
+  max_depth: 8
+  learning_rate: 0.020673687141394805
+  min_child_weight: 15
+  subsample: 0.9413549242801476
+  colsample_bytree: 0.6849356442713105
+  gamma: 0.5454749016213019
+  n_estimators: 550
+  reg_alpha: 0.0005415244119402539
+  reg_lambda: 1.2439367209907215
+  tree_method: hist
 
 monitoring:
   reference_max_rows: 20000

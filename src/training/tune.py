@@ -1,58 +1,96 @@
+import argparse
+import sys
+
+import mlflow
 import optuna
-import xgboost as xgb
+import pandas as pd
 from sklearn.metrics import root_mean_squared_error
 
+from src.config.paths import ProjectPaths
+from src.config.settings import load_mlflow_settings
+from src.training.pipeline import build_model_pipeline, load_split
+from src.utils.io import save_json
 
-def finetune_xgboost_optuna(X_train, y_train, X_val, y_val, n_trials=30):
-    """
-    Finds optimal hyperparameters for XGBoost using Optuna early stopping trials.
-    """
-    print(f"Starting Optuna tuning with {n_trials} trials...")
 
-    def objective(trial):
-        params = {
-            'objective': 'reg:squarederror',
-            'eval_metric': 'rmse',
-            'random_state': 42,
-            'n_jobs': -1,
-            'max_depth': trial.suggest_int('max_depth', 4, 10),
-            'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.2, log=True),
-            'min_child_weight': trial.suggest_int('min_child_weight', 1, 10),
-            'subsample': trial.suggest_float('subsample', 0.6, 1.0),
-            'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 1.0),
-            'gamma': trial.suggest_float('gamma', 0.0, 5.0)
-        }
+def configure_console_encoding() -> None:
+    if sys.platform == "win32":
+        for stream in (sys.stdout, sys.stderr):
+            if hasattr(stream, "reconfigure"):
+                stream.reconfigure(encoding="utf-8")
 
-        model = xgb.XGBRegressor(**params, n_estimators=1000, early_stopping_rounds=100)
-        model.fit(
-            X_train, y_train,
-            eval_set=[(X_val, y_val)],
-            verbose=False
-        )
 
-        trial.set_user_attr('best_iteration', model.best_iteration)
-        preds = model.predict(X_val)
-        rmse = root_mean_squared_error(y_val, preds)
+def suggest_xgboost_params(trial: optuna.Trial) -> dict:
+    return {
+        "max_depth": trial.suggest_int("max_depth", 4, 9),
+        "learning_rate": trial.suggest_float("learning_rate", 0.02, 0.10, log=True),
+        "min_child_weight": trial.suggest_int("min_child_weight", 3, 15),
+        "subsample": trial.suggest_float("subsample", 0.65, 1.0),
+        "colsample_bytree": trial.suggest_float("colsample_bytree", 0.60, 1.0),
+        "gamma": trial.suggest_float("gamma", 0.0, 3.0),
+        "reg_alpha": trial.suggest_float("reg_alpha", 1e-4, 1.0, log=True),
+        "reg_lambda": trial.suggest_float("reg_lambda", 0.5, 10.0, log=True),
+        "n_estimators": trial.suggest_int("n_estimators", 250, 800, step=50),
+        "tree_method": "hist",
+    }
+
+
+def tune(n_trials: int = 20) -> dict:
+    """Select XGBoost parameters on raw train/validation splits without touching test data."""
+    paths = ProjectPaths()
+    train = load_split(paths, "train")
+    validation = load_split(paths, "val")
+    lookup_df = pd.read_csv(paths.lookup_file)
+    settings = load_mlflow_settings()
+    mlflow.set_tracking_uri(settings.tracking_uri)
+    mlflow.set_experiment("green_taxi_duration_tuning")
+
+    def objective(trial: optuna.Trial) -> float:
+        params = suggest_xgboost_params(trial)
+        model = build_model_pipeline(lookup_df, params)
+        model.fit(train.X, train.y)
+        validation_predictions = model.predict(validation.X)
+        rmse = root_mean_squared_error(validation.y, validation_predictions)
+        with mlflow.start_run(run_name=f"trial-{trial.number}"):
+            mlflow.log_params({**params, "trial_number": trial.number, "data_train_rows": len(train.X)})
+            mlflow.log_metric("rmse_val", rmse)
         return rmse
 
-    study = optuna.create_study(
-        direction='minimize',
-        study_name="XGBoost_Taxi_Duration",
-    )
+    sampler = optuna.samplers.TPESampler(seed=42)
+    study = optuna.create_study(direction="minimize", sampler=sampler, study_name="green_taxi_duration_xgboost")
     optuna.logging.set_verbosity(optuna.logging.WARNING)
     study.optimize(objective, n_trials=n_trials)
 
-    best_params = study.best_params
-    best_iteration = study.best_trial.user_attrs['best_iteration']
-    
-    # Add a small buffer since we train on more data (train+val) for the final model
-    best_params['n_estimators'] = int(best_iteration * 1.1) + 1
+    result = {
+        "selection_metric": "rmse_val",
+        "n_trials": n_trials,
+        "best_rmse_val": study.best_value,
+        "best_params": suggest_serializable_params(study.best_params),
+    }
+    save_json(result, paths.tuning_file)
+    return result
 
-    print("\nOPTIMAL TUNING RESULTS:")
-    print(f"Best Val RMSE: {study.best_value:.4f}")
-    print(f"Best n_estimators (early stopping): {best_iteration}")
-    print("Best Parameters:")
-    for key, value in best_params.items():
-        print(f"  {key}: {value}")
 
-    return best_params, study
+def suggest_serializable_params(params: dict) -> dict:
+    """Restore static parameters omitted from Optuna's sampled parameter dictionary."""
+    return {**params, "tree_method": "hist"}
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Tune the full raw-input XGBoost pipeline on validation RMSE.")
+    parser.add_argument("--n-trials", type=int, default=20, help="Number of Optuna trials; default: 20.")
+    return parser.parse_args()
+
+
+def main() -> None:
+    configure_console_encoding()
+    args = parse_args()
+    if args.n_trials < 1:
+        raise ValueError("--n-trials must be at least 1")
+    result = tune(n_trials=args.n_trials)
+    print(f"Best validation RMSE: {result['best_rmse_val']:.4f}")
+    print(f"Saved tuning result to {ProjectPaths().tuning_file}")
+    print("Copy best_params into params.yaml, then run dvc repro to evaluate the final test split.")
+
+
+if __name__ == "__main__":
+    main()

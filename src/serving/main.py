@@ -21,6 +21,8 @@ model_metadata = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global model, model_metadata
+    model = None
+    model_metadata = None
     logger.info("Loading registered prediction pipeline...")
     try:
         model, model_metadata = load_champion_model()

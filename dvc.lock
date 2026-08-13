@@ -59,66 +59,109 @@ stages:
       md5: fd85268bfe569996b17ce3a0b1b437fc.dir
       size: 3627586
       nfiles: 4
-    - path: src/config
+    - path: src/config/paths.py
       hash: md5
-      md5: 163b06ff0ce8cf208d49aa090485bdb4.dir
-      size: 11681
-      nfiles: 9
+      md5: 2ab3bbb868561a11d936e7d87d3d22da
+      size: 1356
+    - path: src/config/settings.py
+      hash: md5
+      md5: b0730e89b2b3f1b02a8eff463fc96744
+      size: 772
     - path: src/data/preparation.py
       hash: md5
       md5: 93f8a0dcae7fa9fc6cfbb8386050b939
       size: 1722
-    - path: src/features
+    - path: src/features/engineering.py
       hash: md5
-      md5: a6b01dc1d4bffebf66b4ef83a29d045d.dir
-      size: 37268
-      nfiles: 12
-    - path: src/training
+      md5: 1bda0ab765dfd626f072e425e803f1af
+      size: 1730
+    - path: src/features/transformer.py
       hash: md5
-      md5: 49f30032ac434260e9dc266658d33da0.dir
-      size: 57526
-      nfiles: 15
+      md5: 752cbc067eb47c3b6dc93f2a2c79e331
+      size: 4764
+    - path: src/monitoring/lineage.py
+      hash: md5
+      md5: 639bf29f15f0fb93429e0293b97ed5c2
+      size: 3885
+    - path: src/training/pipeline.py
+      hash: md5
+      md5: b5b763e6e9acac50f814230efb3e9a56
+      size: 10076
+    - path: src/training/tracker.py
+      hash: md5
+      md5: df98929c02bb1b250673660035046add
+      size: 2408
+    - path: src/training/train.py
+      hash: md5
+      md5: 08ffd46fed9176d34b0cc141a2746414
+      size: 919
+    - path: src/utils/geo.py
+      hash: md5
+      md5: 388b8e4e5abd27f554dba57e3a35bd2c
+      size: 1839
+    - path: src/utils/io.py
+      hash: md5
+      md5: f1caeed83ded2b2017bb66e88f76421e
+      size: 566
     params:
       params.yaml:
         train:
-          max_depth: 7
-          learning_rate: 0.0345
-          min_child_weight: 9
-          subsample: 0.603
-          colsample_bytree: 0.6552
-          gamma: 4.7917
-          n_estimators: 309
+          max_depth: 8
+          learning_rate: 0.020673687141394805
+          min_child_weight: 15
+          subsample: 0.9413549242801476
+          colsample_bytree: 0.6849356442713105
+          gamma: 0.5454749016213019
+          n_estimators: 550
+          reg_alpha: 0.0005415244119402539
+          reg_lambda: 1.2439367209907215
+          tree_method: hist
     outs:
+    - path: reports/error_analysis.png
+      hash: md5
+      md5: 7cbffc23f8354a9e2a2bf2adbed2377a
+      size: 98957
     - path: reports/feature_importance.png
       hash: md5
-      md5: 93c2fd5407a28ac31acddeb9c35c45a3
-      size: 75370
+      md5: 9ab24713cd5c9184935624155533b031
+      size: 84764
     - path: reports/metrics.json
       hash: md5
-      md5: ab4208d374c06b4a338dcab6a6aaccc2
+      md5: 94ecdad93f6141cf83c7cf559983020f
       size: 396
     - path: reports/mlflow_run.json
       hash: md5
-      md5: b2ca421490337a1e48b03e45c473a961
+      md5: 7767bc6e20e83fcffea4a16ee337da8d
       size: 269
+    - path: reports/segment_metrics.json
+      hash: md5
+      md5: 6788cdebd0ed7385aa38ea1a9476fada
+      size: 3996
   register_model:
     cmd: python -m src.training.register_model
     deps:
     - path: reports/mlflow_run.json
       hash: md5
-      md5: b2ca421490337a1e48b03e45c473a961
+      md5: 7767bc6e20e83fcffea4a16ee337da8d
       size: 269
-    - path: src/config
+    - path: src/config/paths.py
       hash: md5
-      md5: 163b06ff0ce8cf208d49aa090485bdb4.dir
-      size: 11681
-      nfiles: 9
+      md5: 2ab3bbb868561a11d936e7d87d3d22da
+      size: 1356
+    - path: src/config/settings.py
+      hash: md5
+      md5: b0730e89b2b3f1b02a8eff463fc96744
+      size: 772
     - path: src/training/register_model.py
       hash: md5
       md5: 79865c0483b88e311f7476bc7dda7369
       size: 2760
+    - path: src/utils/io.py
+      hash: md5
+      md5: f1caeed83ded2b2017bb66e88f76421e
+      size: 566
     outs:
     - path: reports/registry.json
       hash: md5
-      md5: 4979781de05c13530e69033a80a84b10
-      size: 213
+      md5: 031f659c3c7172d93a85e916c390abfb
+      size: 214

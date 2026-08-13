@@ -1,6 +1,8 @@
 # NYC Green Taxi Trip Duration MLOps
 
-Portfolio project for AI Engineer, Data Science, and ML Engineer internship roles. The project predicts NYC Green Taxi trip duration in minutes and demonstrates a reproducible ML pipeline with DVC, MLflow, XGBoost, FastAPI, and Docker.
+Portfolio project for AI Engineer, Data Science, and ML Engineer internship roles. The project predicts NYC Green Taxi trip duration in minutes and demonstrates a reproducible ML pipeline with DVC, MLflow, XGBoost, FastAPI, Docker, and Evidently.
+
+[![Quality Gates](https://github.com/duylw/mlops-practice-01/actions/workflows/ci.yml/badge.svg)](https://github.com/duylw/mlops-practice-01/actions/workflows/ci.yml)
 
 ## Architecture
 
@@ -44,7 +46,7 @@ docker compose up mlflow-server
 In another terminal:
 
 ```bash
-dvc repro
+uv run dvc repro
 ```
 
 Tracked outputs:
@@ -69,6 +71,22 @@ python -m src.training.register_model
 ```bash
 dvc metrics show
 ```
+
+Latest local champion (chronological test split):
+
+| Metric | Result |
+|---|---:|
+| RMSE | 9.10 minutes |
+| MAE | 4.45 minutes |
+| In-process pipeline latency | 0.007 ms/row |
+
+The final configuration was selected with 20 Optuna trials on validation RMSE only; the test split was used once for final evaluation. Run tuning separately when experimenting:
+
+```bash
+uv run python -m src.training.tune --n-trials 20
+```
+
+Copy the selected parameters from `reports/tuning.json` to `params.yaml`, then run `uv run dvc repro` to train and register the candidate.
 
 ## Serving
 
@@ -110,6 +128,14 @@ Example request:
 }
 ```
 
+### Serving Validation
+
+```bash
+uv run python scripts/benchmark_serving.py --request-count 20
+```
+
+The benchmark tests batch sizes `1`, `10`, and `100` at concurrency `1`, `5`, and `10`. It stores aggregate success rate, throughput, and p50/p95/p99 latency in ignored `reports/serving_benchmark.json`; request payloads are never saved.
+
 Example response:
 
 ```json
@@ -125,9 +151,12 @@ Example response:
 ## Tests
 
 ```bash
-pytest
-python -m compileall src main.py
+uv run ruff check src tests scripts
+uv run pytest
+uv run python -m compileall src
 ```
+
+GitHub Actions runs these same commands for pull requests and pushes to `main`. CI intentionally does not run DVC, Docker, MLflow, or batch monitoring because those require local data or runtime services.
 
 ## Batch Monitoring
 
@@ -150,6 +179,14 @@ quality metrics.
 
 ## Portfolio Notes
 
-- Data Science: see `reports/model_card.md` for target definition, leakage handling, features, validation, and limitations.
-- ML Engineering: DVC provides reproducible stages and metrics tracking.
-- AI Engineering: FastAPI serves the registered MLflow model with a stable prediction contract.
+| Focus | What this project demonstrates |
+|---|---|
+| Data Science | Leakage-aware target preparation, chronological validation, Optuna tuning, and segment-level error analysis. |
+| ML Engineering | DVC reproducibility, MLflow tracking/registry, one fitted sklearn pipeline, tests, and monitoring lineage. |
+| AI Engineering | FastAPI prediction contract, Dockerized serving, model readiness checks, and request benchmark tooling. |
+
+See `reports/model_card.md` for modeling details and `docs/portfolio-readiness/` for the completed local-first roadmap.
+
+## Future Cloud Extension
+
+Not implemented in this repository. A future iteration may add an S3 DVC remote, hosted MLflow, and CI/CD deployment. The current portfolio intentionally stays local-first so every demonstrated capability can be reproduced and explained without cloud credentials or cost.

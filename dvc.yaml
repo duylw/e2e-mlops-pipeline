@@ -25,14 +25,25 @@ stages:
     deps:
       - data/split
       - data/raw/nyc_taxi_lookup_with_coords.csv
-      - src/config
+      - src/config/paths.py
+      - src/config/settings.py
       - src/data/preparation.py
-      - src/features
-      - src/training
+      - src/features/engineering.py
+      - src/features/transformer.py
+      - src/monitoring/lineage.py
+      - src/training/pipeline.py
+      - src/training/tracker.py
+      - src/training/train.py
+      - src/utils/geo.py
+      - src/utils/io.py
     outs:
       - reports/mlflow_run.json:
           cache: false
       - reports/feature_importance.png:
+          cache: false
+      - reports/error_analysis.png:
+          cache: false
+      - reports/segment_metrics.json:
           cache: false
     metrics:
       - reports/metrics.json:
@@ -42,8 +53,10 @@ stages:
     cmd: python -m src.training.register_model
     deps:
       - reports/mlflow_run.json
-      - src/config
+      - src/config/paths.py
+      - src/config/settings.py
       - src/training/register_model.py
+      - src/utils/io.py
     outs:
       - reports/registry.json:
           cache: false

@@ -1,0 +1,24 @@
+.git
+.github
+.venv
+.pytest_cache
+.pytest-tmp
+.ruff_cache
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+
+# Local runtime and large data
+data/
+artifacts/
+mlruns/
+tmp/
+reports/
+
+# DVC cache and metadata
+.dvc/
+.dvcignore
+
+# Documentation and logs
+docs/

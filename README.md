@@ -3,18 +3,20 @@
 Portfolio project for AI Engineer, Data Science, and ML Engineer internship roles. The project predicts NYC Green Taxi trip duration in minutes and demonstrates a reproducible ML pipeline with DVC, MLflow, XGBoost, FastAPI, Docker, and Evidently.
 
 [![Quality Gates](https://github.com/duylw/mlops-practice-01/actions/workflows/ci.yml/badge.svg)](https://github.com/duylw/mlops-practice-01/actions/workflows/ci.yml)
+[![Continuous Delivery](https://github.com/duylw/mlops-practice-01/actions/workflows/cd.yml/badge.svg)](https://github.com/duylw/mlops-practice-01/actions/workflows/cd.yml)
 
 ## Architecture
 
-```text
-NYC TLC Green Taxi data
-  -> DVC ingest
-  -> chronological split
-  -> fitted sklearn Pipeline (features + XGBoost)
-  -> evaluation metrics
-  -> MLflow model registry promotion
-  -> FastAPI serving
+```mermaid
+flowchart LR
+    A[NYC TLC Data] --> B[DVC Pipeline: Ingest & Split]
+    B --> C[Sklearn Pipeline: Features + XGBoost]
+    C --> D[MLflow Tracking & Registry: @champion]
+    D --> E[FastAPI Serving Container]
+    E --> F[Evidently AI Drift Monitoring]
+    F -.->|Retrain Trigger| B
 ```
+
 
 ## Project Structure
 
@@ -164,7 +166,18 @@ Example response:
 }
 ```
 
-## Tests
+## CI/CD Pipeline & Quality Gates
+
+The repository implements an automated **CI/CD/CT** lifecycle with GitHub Actions:
+
+- **CI (`.github/workflows/ci.yml`)**: Triggered on all PRs and pushes to `main`.
+  - **Quality Gates**: Linting (`ruff`), 19 unit tests (`pytest`), and syntax checks (`compileall`).
+  - **Docker Dry-Run**: Builds the serving container using Docker Buildx to verify packaging integrity before merge.
+- **CD (`.github/workflows/cd.yml`)**: Triggered on merge to `main` and release tags (`v*.*.*`).
+  - Builds and releases multi-tag Docker images to **GitHub Container Registry (GHCR)**: `ghcr.io/duylw/mlops-serving-api:latest`.
+  - Employs GitHub Actions cache (`type=gha`) for fast builds.
+
+Run local verification suite:
 
 ```bash
 uv run ruff check src tests scripts
@@ -172,7 +185,6 @@ uv run pytest
 uv run python -m compileall src
 ```
 
-GitHub Actions runs these same commands for pull requests and pushes to `main`. CI intentionally does not run DVC, Docker, MLflow, or batch monitoring because those require local data or runtime services.
 
 ## Batch Monitoring
 

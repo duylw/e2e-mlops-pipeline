@@ -1,15 +1,25 @@
-FROM python:3.12-slim
+# Stage 1: Builder
+FROM python:3.12-slim AS builder
 
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
 WORKDIR /app
 
 COPY pyproject.toml uv.lock ./
-RUN uv sync --locked --no-default-groups --group serving --no-install-project
+RUN uv sync --locked --no-default-groups --group serving --no-install-project --no-cache
 
-ENV PATH="/app/.venv/bin:$PATH"
+# Stage 2: Lean Runtime
+FROM python:3.12-slim AS runtime
 
+WORKDIR /app
+
+
+COPY --from=builder /app/.venv /app/.venv
 COPY src ./src
+
+ENV PATH="/app/.venv/bin:$PATH" \
+  PYTHONUNBUFFERED=1 \
+  PYTHONDONTWRITEBYTECODE=1
 
 EXPOSE 8000
 

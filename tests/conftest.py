@@ -1,7 +1,8 @@
 import gc
+
+import _pytest.pathlib
 import matplotlib.pyplot as plt
 import pytest
-import _pytest.pathlib
 
 # Safely ignore Windows file handle lock permission errors during pytest temp directory cleanup
 _orig_rm_rf = _pytest.pathlib.rm_rf

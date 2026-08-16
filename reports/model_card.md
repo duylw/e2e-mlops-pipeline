@@ -20,8 +20,10 @@ Predict NYC Green Taxi trip duration in minutes from pickup time, pickup/dropoff
 
 - Time: pickup hour, day of week, cyclical hour/day, weekend flag, rush-hour flag.
 - Location: pickup borough/zone, estimated haversine distance from TLC zone centroids.
-- Historical profile: train-only average speed by pickup hour and pickup borough.
+- Route: pickup/dropoff borough, same-borough indicator, and train-only frequency encodings for pickup zone, dropoff zone, and pickup/dropoff route.
 - Encodings: fixed one-hot categories learned from train data.
+
+The final transformer does not use target-derived historical-speed features. This keeps every training-row feature independent of that row's duration target.
 
 ## Validation Strategy
 
@@ -36,6 +38,23 @@ This avoids random future-to-past leakage and better matches real taxi demand fo
 ## Metrics
 
 Primary metrics are RMSE and MAE in minutes. DVC tracks them in `reports/metrics.json`.
+
+| Model | Validation RMSE | Test RMSE | Test MAE |
+|---|---:|---:|---:|
+| Initial recorded baseline | 8.73 | 9.48 | 4.81 |
+| Final champion, 20-trial validation tuning | 8.37 | 9.10 | 4.45 |
+
+The final champion is selected with validation RMSE; the chronological test split is reserved for the final result above.
+
+## Error Analysis
+
+Segment metrics are generated on the test split in `reports/segment_metrics.json` for groups with at least 100 trips.
+
+- Bronx pickup trips: RMSE 12.93 minutes across 644 trips.
+- Trips with missing `trip_type`: RMSE 12.89 minutes across 3,376 trips.
+- Pickups at 06:00: RMSE 20.10 minutes across 502 trips.
+
+These slices identify data quality and early-morning variability as higher-risk cases than the overall aggregate metric.
 
 ## Monitoring
 

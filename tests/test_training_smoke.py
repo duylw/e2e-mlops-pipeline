@@ -3,7 +3,7 @@ from sklearn.pipeline import Pipeline
 
 from src.data.preparation import prepare_training_data
 from src.features.transformer import NYCGreenTaxiFeatureTransformer
-from src.training.pipeline import TrainingPipeline, create_xgboost_model
+from src.training.pipeline import SplitData, TrainingPipeline, create_xgboost_model
 
 
 def test_full_pipeline_fits_predicts_and_generates_feature_importance_plot(tmp_path):
@@ -40,9 +40,15 @@ def test_full_pipeline_fits_predicts_and_generates_feature_importance_plot(tmp_p
     request_data = X_train.drop(columns=[]).head(1)
     prediction = pipeline.predict(request_data)
     importance_file = tmp_path / "feature_importance.png"
+    error_analysis_file = tmp_path / "error_analysis.png"
     importance_table = TrainingPipeline.plot_feature_importance(pipeline, importance_file)
+    split = SplitData(X=X_train, y=y_train, source_path=tmp_path / "fixture.parquet")
+    TrainingPipeline.plot_error_analysis(pipeline, split, error_analysis_file)
+    segment_metrics = TrainingPipeline.build_segment_metrics(pipeline, split, lookup, minimum_rows=1)
 
     assert prediction.shape == (1,)
     assert isinstance(float(prediction[0]), float)
     assert not importance_table.empty
     assert importance_file.exists()
+    assert error_analysis_file.exists()
+    assert segment_metrics["pickup_hour"]

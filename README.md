@@ -37,6 +37,22 @@ reports/       DVC metrics and model card
 uv sync
 ```
 
+`uv sync` installs every local capability group. The serving Docker image installs only the base runtime and `serving` group:
+
+```bash
+uv sync --no-default-groups --group serving
+```
+
+Dependency groups:
+
+| Group | Purpose |
+|---|---|
+| Base | MLflow model loading, sklearn pipeline, XGBoost, and shared configuration. |
+| `serving` | FastAPI and Uvicorn. |
+| `training` | DVC, ingestion, feature reports, and Optuna tuning. |
+| `monitoring` | Evidently and Parquet monitoring input. |
+| `dev` | Pytest, Ruff, and HTTP benchmark tests. |
+
 Start MLflow before running the full DVC pipeline:
 
 ```bash

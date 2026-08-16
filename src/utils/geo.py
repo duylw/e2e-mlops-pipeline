@@ -1,10 +1,8 @@
 import os
 import zipfile
 
-import geopandas as gpd
 import numpy as np
 import pandas as pd
-import requests
 
 
 def download_taxi_zones(
@@ -13,6 +11,8 @@ def download_taxi_zones(
     extract_to: str = "taxi_zones_data",
 ) -> None:
     """Download and extract NYC TLC taxi zone shapefiles."""
+    import requests
+
     if os.path.exists(extract_to):
         print(f"Directory {extract_to} already exists. Skipping download.")
         return
@@ -34,6 +34,8 @@ def download_taxi_zones(
 
 def create_coordinate_lookup(shapefile_path: str) -> pd.DataFrame:
     """Create a LocationID -> centroid coordinates lookup table."""
+    import geopandas as gpd
+
     gdf = gpd.read_file(shapefile_path)
     centroids_gps = gdf.geometry.centroid.to_crs("EPSG:4326")
     gdf["longitude"] = centroids_gps.x

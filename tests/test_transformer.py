@@ -59,3 +59,7 @@ def test_transformer_accepts_serving_schema_and_keeps_stable_columns():
     assert list(transformed_inference.columns) == list(transformer.get_feature_names_out())
     assert list(transformed_train.columns) == list(transformer.get_feature_names_out())
     assert len(transformed_inference) == 1
+    assert "historical_avg_speed" not in transformed_train.columns
+    assert {"PU_zone_frequency", "DO_zone_frequency", "route_frequency", "same_borough"}.issubset(
+        transformed_train.columns
+    )

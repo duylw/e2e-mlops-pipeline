@@ -52,7 +52,8 @@ ignore = ["E501"]
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
-addopts = "-p no:cacheprovider --basetemp=tmp/pytest_temp"
+addopts = "-p no:cacheprovider --basetemp=.pytest_temp"
+
 
 
 

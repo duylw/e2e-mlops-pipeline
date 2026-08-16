@@ -1,4 +1,5 @@
 import gc
+import pathlib
 
 import _pytest.pathlib
 import matplotlib.pyplot as plt
@@ -16,6 +17,13 @@ def _safe_rm_rf(path):
 
 
 _pytest.pathlib.rm_rf = _safe_rm_rf
+
+
+def pytest_configure(config):
+    # Ensure basetemp and its parent directories exist across any OS / CI runner
+    basetemp = config.option.basetemp
+    if basetemp:
+        pathlib.Path(basetemp).mkdir(parents=True, exist_ok=True)
 
 
 @pytest.fixture(autouse=True)

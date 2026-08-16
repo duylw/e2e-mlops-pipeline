@@ -3,6 +3,12 @@ name: Continuous Delivery & Container Release
 on:
   push:
     branches: [main]
+    paths:
+      - "src/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".dockerignore"
+      - ".github/workflows/cd.yml"
     tags:
       - "v*.*.*"
   workflow_dispatch:

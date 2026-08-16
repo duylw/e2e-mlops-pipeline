@@ -1,6 +1,6 @@
 # NYC Green Taxi Trip Duration MLOps
 
-Portfolio project for AI Engineer, Data Science, and ML Engineer internship roles. The project predicts NYC Green Taxi trip duration in minutes and demonstrates a reproducible ML pipeline with DVC, MLflow, XGBoost, FastAPI, Docker, and Evidently.
+An end-to-end reproducible Machine Learning system that predicts NYC Green Taxi trip duration in minutes. The project demonstrates a modular MLOps workflow incorporating DVC data pipelines, MLflow experiment tracking and model registry, Scikit-learn feature engineering, XGBoost regression, FastAPI serving, Docker containerization, and Evidently AI drift monitoring.
 
 [![Quality Gates](https://github.com/duylw/mlops-practice-01/actions/workflows/ci.yml/badge.svg)](https://github.com/duylw/mlops-practice-01/actions/workflows/ci.yml)
 [![Continuous Delivery](https://github.com/duylw/mlops-practice-01/actions/workflows/cd.yml/badge.svg)](https://github.com/duylw/mlops-practice-01/actions/workflows/cd.yml)
@@ -17,148 +17,135 @@ flowchart LR
     F -.->|Retrain Trigger| B
 ```
 
-
 ## Project Structure
 
 ```text
 src/
-  config/      path and environment settings
-  data/        ingest, split, target preparation
-  features/    stateless engineering and sklearn transformer
-  training/    pipeline training, MLflow tracking, registry promotion
-  monitoring/  Evidently batch monitoring for registered models
-  serving/     FastAPI app, schemas, MLflow model loader
-  utils/       geo and IO helpers
-tests/         unit and schema tests
-reports/       DVC metrics and model card
+  config/      Path definitions and environment settings
+  data/        Data ingestion, chronological splitting, and target preparation
+  features/    Stateless feature engineering and custom Scikit-learn transformer
+  training/    Pipeline training, MLflow tracker, and model registry promotion
+  monitoring/  Evidently AI batch drift and quality monitoring
+  serving/     FastAPI application, Pydantic schemas, and model loader
+  utils/       Geographical calculations and IO utilities
+tests/         Unit, integration, and schema tests
+reports/       Metrics, model cards, and error analysis plots
 ```
 
-## Setup
+## Prerequisites
+
+- Python `>= 3.12`
+- [`uv`](https://github.com/astral-sh/uv) package manager
+- Docker and Docker Compose
+
+## Quickstart
+
+### 1. Environment Setup
+
+Clone the repository and synchronize dependencies:
 
 ```bash
 uv sync
 ```
 
-`uv sync` installs every local capability group. The serving Docker image installs only the base runtime and `serving` group:
+Dependency groups defined in `pyproject.toml`:
 
-```bash
-uv sync --no-default-groups --group serving
-```
-
-Dependency groups:
-
-| Group | Purpose |
+| Group | Description |
 |---|---|
-| Base | MLflow model loading, sklearn pipeline, XGBoost, and shared configuration. |
-| `serving` | FastAPI and Uvicorn. |
-| `training` | DVC, ingestion, feature reports, and Optuna tuning. |
-| `monitoring` | Evidently and Parquet monitoring input. |
-| `dev` | Pytest, Ruff, and HTTP benchmark tests. |
+| Base | Core dependencies (Scikit-learn, XGBoost, MLflow, Pandas, NumPy) |
+| `serving` | FastAPI and Uvicorn runtime |
+| `training` | DVC, GeoPandas, Optuna, Matplotlib |
+| `monitoring` | Evidently AI and PyArrow |
+| `dev` | Pytest, Ruff, and HTTP benchmark client |
 
-Start MLflow before running the full DVC pipeline:
+### 2. Start MLflow Tracking Server
 
 ```bash
-docker compose up mlflow-server
+docker compose up -d mlflow-server
 ```
 
-In another terminal:
+MLflow UI will be available at `http://localhost:5000`.
+
+### 3. Run the Training Pipeline
+
+Execute the full reproducible DVC pipeline (Ingest -> Split -> Train -> Register):
 
 ```bash
 uv run dvc repro
 ```
 
-Tracked outputs:
-
-- `reports/mlflow_run.json`
-- `reports/metrics.json`
-- `reports/registry.json`
-
-The registered MLflow model contains both the fitted feature transformer and XGBoost estimator. There is no standalone preprocessor artifact.
-
-## Training Pipeline
-
-```bash
-python -m src.data.ingest
-python -m src.data.split
-python -m src.training.train
-python -m src.training.register_model
-```
-
-`src.training.train` fits and evaluates one sklearn Pipeline from raw chronological splits, then logs that complete pipeline to MLflow. Primary metrics are RMSE and MAE in minutes. DVC reads them from:
+View primary evaluation metrics:
 
 ```bash
 dvc metrics show
 ```
 
-Latest local champion (chronological test split):
+Key performance metrics (held-out chronological test split):
+- **RMSE**: 9.10 minutes
+- **MAE**: 4.45 minutes
+- **Pipeline Latency**: ~0.007 ms/row
 
-| Metric | Result |
-|---|---:|
-| RMSE | 9.10 minutes |
-| MAE | 4.45 minutes |
-| In-process pipeline latency | 0.007 ms/row |
+### 4. Hyperparameter Tuning (Optional)
 
-The final configuration was selected with 20 Optuna trials on validation RMSE only; the test split was used once for final evaluation. Run tuning separately when experimenting:
+Run Optuna optimization on the validation split:
 
 ```bash
 uv run python -m src.training.tune --n-trials 20
 ```
 
-Copy the selected parameters from `reports/tuning.json` to `params.yaml`, then run `uv run dvc repro` to train and register the candidate.
+Selected parameters are logged to `reports/tuning.json`. Update `params.yaml` and re-run `dvc repro` to retrain with optimal parameters.
 
-## Serving
+## Model Serving
 
-After a model has been registered and promoted:
+### Option A: Run via Docker Compose
 
 ```bash
-docker compose up --build
+docker compose up -d --build serving-api
 ```
 
-Health and metadata:
+### Option B: Run Pre-built Image from GitHub Container Registry
 
 ```bash
+docker run -d -p 8000:8000 --name serving-api \
+  --network mlops-practice-01_default \
+  -e MLFLOW_TRACKING_URI=http://mlflow-server:5000 \
+  ghcr.io/duylw/mlops-serving-api:latest
+```
+
+### API Verification
+
+Health check:
+```bash
 curl http://localhost:8000/health
+```
+
+Metadata:
+```bash
 curl http://localhost:8000/metadata
 ```
 
-Prediction:
-
+Prediction request:
 ```bash
 curl -X POST http://localhost:8000/predict \
   -H "Content-Type: application/json" \
-  -d @data_sample.json
+  -d '{
+    "trips": [
+      {
+        "VendorID": 2,
+        "lpep_pickup_datetime": "2026-01-15 08:30:00",
+        "PULocationID": 74,
+        "DOLocationID": 42,
+        "passenger_count": 1,
+        "trip_type": 1
+      }
+    ]
+  }'
 ```
 
-Example request:
-
+Response format:
 ```json
 {
-  "trips": [
-    {
-      "VendorID": 2,
-      "lpep_pickup_datetime": "2026-01-15 08:30:00",
-      "PULocationID": 74,
-      "DOLocationID": 42,
-      "passenger_count": 1,
-      "trip_type": 1
-    }
-  ]
-}
-```
-
-### Serving Validation
-
-```bash
-uv run python scripts/benchmark_serving.py --request-count 20
-```
-
-The benchmark tests batch sizes `1`, `10`, and `100` at concurrency `1`, `5`, and `10`. It stores aggregate success rate, throughput, and p50/p95/p99 latency in ignored `reports/serving_benchmark.json`; request payloads are never saved.
-
-Example response:
-
-```json
-{
-  "predictions": [12.34],
+  "predictions": [10.17],
   "model_name": "green_taxi_duration_model",
   "model_version": 1,
   "model_alias": "champion",
@@ -166,18 +153,29 @@ Example response:
 }
 ```
 
-## CI/CD Pipeline & Quality Gates
+### Benchmark Serving Latency
 
-The repository implements an automated **CI/CD/CT** lifecycle with GitHub Actions:
+```bash
+uv run python scripts/benchmark_serving.py --request-count 20
+```
 
-- **CI (`.github/workflows/ci.yml`)**: Triggered on all PRs and pushes to `main`.
-  - **Quality Gates**: Linting (`ruff`), 19 unit tests (`pytest`), and syntax checks (`compileall`).
-  - **Docker Dry-Run**: Builds the serving container using Docker Buildx to verify packaging integrity before merge.
-- **CD (`.github/workflows/cd.yml`)**: Triggered on merge to `main` and release tags (`v*.*.*`).
-  - Builds and releases multi-tag Docker images to **GitHub Container Registry (GHCR)**: `ghcr.io/duylw/mlops-serving-api:latest`.
-  - Employs GitHub Actions cache (`type=gha`) for fast builds.
+Tests batch sizes (`1`, `10`, `100`) across concurrency levels (`1`, `5`, `10`) and outputs p50/p95/p99 latency percentiles.
 
-Run local verification suite:
+## Batch Monitoring
+
+Run Evidently AI batch monitoring comparing a current dataset against the reference training distribution:
+
+```bash
+uv run python -m src.monitoring.run \
+  --current-path data/split/test_raw.parquet \
+  --current-name test-2026-04
+```
+
+Reports (HTML/JSON) and drift metrics are exported to `reports/monitoring/` and logged to the `green_taxi_duration_monitoring` MLflow experiment.
+
+## Testing & Quality Gates
+
+Run the local test and lint suite:
 
 ```bash
 uv run ruff check src tests scripts
@@ -185,36 +183,7 @@ uv run pytest
 uv run python -m compileall src
 ```
 
+### CI/CD Automation
 
-## Batch Monitoring
-
-Evidently evaluates a current Parquet batch against the DVC-managed training and
-validation splits associated with the registered `champion` model. It does not
-copy Parquet files into MLflow. Training logs Git/DVC lineage and split time-range tags;
-retrain and register the champion once before the first monitoring run.
-
-```bash
-python -m src.monitoring.run \
-  --current-path data/split/test_raw.parquet \
-  --current-name test-2026-04
-```
-
-The command creates ignored HTML and JSON reports under `reports/monitoring/`
-and logs them with Evidently-derived metrics to the
-`green_taxi_duration_monitoring` MLflow experiment. A current file containing
-only the six API input fields runs input drift monitoring without regression
-quality metrics.
-
-## Portfolio Notes
-
-| Focus | What this project demonstrates |
-|---|---|
-| Data Science | Leakage-aware target preparation, chronological validation, Optuna tuning, and segment-level error analysis. |
-| ML Engineering | DVC reproducibility, MLflow tracking/registry, one fitted sklearn pipeline, tests, and monitoring lineage. |
-| AI Engineering | FastAPI prediction contract, Dockerized serving, model readiness checks, and request benchmark tooling. |
-
-See `reports/model_card.md` for modeling details and `docs/portfolio-readiness/` for the completed local-first roadmap.
-
-## Future Cloud Extension
-
-Not implemented in this repository. A future iteration may add an S3 DVC remote, hosted MLflow, and CI/CD deployment. The current portfolio intentionally stays local-first so every demonstrated capability can be reproduced and explained without cloud credentials or cost.
+- **CI (`.github/workflows/ci.yml`)**: Triggers on pull requests and pushes to `main`. Runs linting, 19 unit tests, syntax compilation, and Docker build dry-run verification.
+- **CD (`.github/workflows/cd.yml`)**: Triggers on pushes to `main` and release tags (`v*.*.*`). Builds and releases multi-tag container images to GitHub Container Registry (GHCR).
